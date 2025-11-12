@@ -1,0 +1,144 @@
+/* === Estilos generales === */
+body {
+    font-family: "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background-color: #1E3771;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100vh;
+    margin: 0;
+}
+
+h2 {
+    color: #333;
+    margin-bottom: 20px;
+    text-align: center;
+}
+
+/* === Contenedores principales === */
+.login-container,
+/*.dashboard-container,*/
+.resultado-container {
+    background: #F7F7F7;
+    padding: 40px;
+    border-radius: 12px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    width: 350px;
+    text-align: center;
+    background-image: url('../imagenes/pieza_dpto.png');
+    background-repeat: no-repeat;
+    background-position: center top 20px; /* Mueve la imagen mucho más arriba */
+    background-size: 400px; /* Aumenta el tamaño de la imagen de fondo */
+    padding-top: 220px; /* Aumenta el padding para que el texto baje y no se superponga */
+}
+.login-divider {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    /*margin: 16px 0 24px;*/
+    margin: 16px 0 24px;
+}
+
+/* Esto fuerza a las líneas a expandirse y ocupar el espacio disponible */
+.login-divider hr {
+    flex-grow: 1; /* ¡Esta es la clave! */
+    border: none; /* Opcional: Remueve el borde predeterminado */
+    border-top: 1px solid #ccc; /* Agrega un borde superior delgado como línea */
+}
+
+/* Esto agrega un margen horizontal al texto para separarlo de las líneas */
+.login-divider h3 {
+    margin: 0 15px; /* Margen de 0px arriba/abajo y 15px a la izquierda/derecha */
+    white-space: nowrap; /* Evita que el texto se divida en varias líneas */
+    font-size: 16px; /* Ajusta el tamaño si es necesario */
+}
+
+/* === Formularios === */
+form {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+label {
+    text-align: left;
+    color: #444;
+    font-weight: 600;
+}
+
+input[type="text"],
+input[type="password"] {
+    padding: 10px;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    font-size: 14px;
+    outline: none;
+    transition: border-color 0.2s;
+}
+
+input[type="text"]:focus,
+input[type="password"]:focus {
+    border-color: #0078d7;
+}
+
+/* === Botones === */
+button {
+    background-color: #0078d7;
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    padding: 10px;
+    font-size: 15px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+button:hover {
+    background-color: #005fa3;
+}
+
+/* === Mensajes y enlaces === */
+p {
+    margin: 10px 0;
+}
+
+a {
+    text-decoration: none;
+    color: #0078d7;
+}
+
+a:hover {
+    text-decoration: underline;
+}
+
+/* === Responsivo === */
+@media (max-width: 400px) {
+    .login-container,
+    .dashboard-container,
+    .resultado-container {
+        width: 90%;
+        padding: 20px;
+    }
+}
+.volver-container {
+    text-align: center;
+    margin-top: 25px;
+    padding: 15px 0;
+}
+
+.volver {
+    /*display: inline-block;
+    display: flex;*/
+    background-color: #0078d7;
+    color: #fff;
+    text-decoration: none;
+    padding: 10px 20px;
+    border-radius: 6px;
+    font-weight: bold;
+    transition: background-color 0.3s;
+}
+
+.volver:hover {
+    background-color: #005fa3;
+}
+
