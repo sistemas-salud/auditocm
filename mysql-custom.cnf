@@ -1,0 +1,5 @@
+[mysqld]
+
+Deshabilita la restricción de secure_file_priv para permitir LOAD DATA INFILE
+
+secure_file_priv = ""

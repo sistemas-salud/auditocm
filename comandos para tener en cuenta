@@ -1,0 +1,89 @@
+cd C:\Users\jchurtado\Desktop\auditocm 
+
+👉(Levanta el servicio llamado backend sin recrear nada)
+docker compose start backend
+
+👉(Detiene el servicio llamado backend, pero NO lo elimina ni sus contenedores. Solo los detiene (como ponerlo en pausa).)
+docker compose stop backend
+
+👉(Reinicia el servicio frontend:lo detiene y lo vuelve a iniciar inmediatamente.)
+(Útil si hiciste cambios en variables de entorno o configuración del contenedor y quieres que se apliquen.)
+docker compose restart frontend 
+
+👉(Levanta (inicia) solo el servicio frontend en modo detached (-d → “en segundo plano”).)
+( Si el contenedor no existe, lo crea. Si ya existe, lo inicia (no lo recrea).)
+docker compose up -d frontend
+
+👉(Levanta los servicios backend y frontend, recreando completamente sus contenedores, aunque no haya cambios en la configuración.)
+(Es útil cuando sospechas que un contenedor quedó en mal estado o cambió algo en el entorno y quieres “empezar limpio” sin borrar volúmenes.)
+docker compose up -d --force-recreate backend frontend 
+
+👉(Detiene y elimina todo lo definido en el docker-compose.yml:
+Contenedores
+Red
+Imágenes huérfanas (opcional)
+Y además -v elimina los volúmenes asociados (¡borra los datos persistentes!))
+(Precaución: Esto borra los volúmenes → pierdes datos guardados dentro de los contenedores (como bases de datos, si están en volúmenes).)
+docker compose down -v
+
+👉(Levanta todos los servicios en segundo plano, reconstruyendo las imágenes antes de iniciar los contenedores.)
+(Útil cuando cambiaste algo en el Dockerfile o en los archivos de tu aplicación y quieres que el contenedor use la nueva versión del código.)
+docker compose up -d --build 
+
+👉(Esto detiene y arranca de nuevo todos los contenedores definidos en docker-compose.yml(frontend, backend, db, etc.))
+docker-compose restart
+
+👉(Sirve para ver los contenedores que están corriendo actualmente en tu sistema.)
+➡️CONTAINER ID		El identificador único (abreviado) del contenedor
+➡️IMAGE				La imagen Docker que se está ejecutando
+➡️COMMAND			El comando con el que se inició el contenedor
+➡️STATUS			Estado actual (por ejemplo: Up 5 minutes, Exited (0) 2 hours ago)
+➡️PORTS				Muestra los puertos expuestos y mapeados al host
+➡️NAMES				El nombre del contenedor (útil para usar con otros comandos)
+docker ps
+
+👉(Sirve para entrar dentro del contenedor del servicio db (definido en tu docker-compose.yml) y abrir una shell interactiva (sh).)
+docker compose exec db sh
+
+👉(sirve para copiar un archivo desde tu computadora (host) hacia dentro de un contenedor Docker — en este caso, el contenedor de tu base de datos.)
+docker cp "C:\Users\jchurtado\Desktop\auditocm\urg.csv" auditocm_db:/var/lib/mysql-files/urg.csv
+
+docker cp "C:\Users\jchurtado\Desktop\auditocm\mig.csv" auditocm_db:/var/lib/mysql-files/mig.csv
+
+👉(sirve para entrar al cliente MySQL dentro del contenedor llamado auditocm_db, con acceso interactivo, y habilitar la opción de importar archivos locales (CSV, por ejemplo).)
+docker exec -it auditocm_db mysql -u root -p --local-infile=1
+
+👉(sirve para consultar (ver) los primeros 5 registros de la tabla facturas_urg, mostrando únicamente algunas columnas específicas.)
+mysql> SELECT consecutivo, nombre_ips, factura, valor_factura FROM facturas_urg LIMIT 5;
+
+👉(sirve para importar masivamente los datos de un archivo CSV (urg.csv) a la tabla facturas_urg dentro de MySQL.)
+➡️LOAD DATA → comando que le indica a MySQL que cargue datos desde un archivo.
+➡️LOCAL → permite usar archivos que están en tu máquina o dentro del contenedor, no necesariamente en el servidor MySQL.
+➡️INFILE '/var/lib/mysql-files/urg.csv' → ruta completa del archivo CSV que quieres importar.
+➡️UTF8	→ Si tu archivo fue guardado en UTF-8 (más común en sistemas modernos)
+➡️latin1	→ Si los acentos o caracteres se ven mal al importar (común en archivos exportados desde Excel en Windows)
+➡️FIELDS TERMINATED BY '|' → Indica que los campos (columnas) del archivo están separados por el carácter | (barra vertical).
+➡️LINES TERMINATED BY '\r\n' → Indica cómo termina cada línea en el archivo. \r\n = típico de archivos creados en Windows \n = típico de Linux / macOS
+
+TABLA URGENCIAS: 
+LOAD DATA LOCAL INFILE '/var/lib/mysql-files/urg.csv'
+INTO TABLE facturas_urg
+CHARACTER SET UTF8 #latin1
+FIELDS TERMINATED BY '|'
+LINES TERMINATED BY '\r\n'
+IGNORE 1 LINES;
+
+TABLA MIGRANTES:
+LOAD DATA LOCAL INFILE '/var/lib/mysql-files/mig.csv'
+INTO TABLE facturas_mig
+CHARACTER SET UTF8 #latin1
+FIELDS TERMINATED BY '|'
+LINES TERMINATED BY '\r\n'
+IGNORE 1 LINES
+;
+
+select * from facturas_mig limit 5;
+select count(*) from facturas_mig;
+delete from facturas_mig;
+
+

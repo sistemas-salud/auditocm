@@ -1,0 +1,10 @@
+# Ignorar datos de MySQL
+mysql_data/
+auditocm_db_data/
+
+# Ignorar archivos de configuración sensibles
+.env
+
+# Ignorar archivos temporales de sistema
+.DS_Store
+Thumbs.db

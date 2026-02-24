@@ -1,78 +1,144 @@
 <?php
 session_start();
+// Asegúrate de que esta ruta sea correcta para tu proyecto
+require_once __DIR__ . '/../src/auth.php'; 
 
-// Validar que el usuario esté autenticado
+// Lógica de autenticación (mantener o redirigir)
 if (!isset($_SESSION['user'])) {
     header('Location: index.php');
     exit;
 }
 
-$user = $_SESSION['user'];
+// Lógica para mostrar mensajes flotantes (modales)
+$show_modal = false;
+$modal_type = '';
+$modal_title = '';
+$modal_message = '';
+
+if (isset($_SESSION['modal_message'])) {
+    $show_modal = true;
+    $modal_type = $_SESSION['modal_type'] ?? 'alerta';
+    $modal_title = $_SESSION['modal_title'] ?? 'Notificación';
+    $modal_message = $_SESSION['modal_message'];
+    // IMPORTANTE: Borrar el mensaje de la sesión inmediatamente después de leerlo.
+    unset($_SESSION['modal_message']);
+    unset($_SESSION['modal_type']);
+    unset($_SESSION['modal_title']);
+}
+
+// CORRECCIÓN PARA EVITAR TypeError: 
+// Se verifica si $_SESSION['user'] es un array antes de intentar acceder a 'email'.
+// Esto corrige el error cuando $_SESSION['user'] es accidentalmente una cadena (string).
+$user_data = $_SESSION['user'];
+$user_email = 'Usuario Desconocido'; // Valor por defecto
+
+if (is_array($user_data) && isset($user_data['email'])) {
+    $user_email = htmlspecialchars($user_data['email']);
+} elseif (is_string($user_data)) {
+    // Si es una cadena (el origen del error), asumimos que es el email
+    $user_email = htmlspecialchars($user_data);
+}
 ?>
 
 <!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Consulta de Facturas - AuditoCM</title>
+    <title>Dashboard URG</title>
     <link rel="stylesheet" href="css/styles.css">
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            background-color: #f4f7fb;
-            margin: 0;
-            padding: 40px;
-            text-align: center;
+    <script>
+        // Función para mostrar/ocultar el modal
+        function toggleModal(show) {
+            const modal = document.getElementById('myModal');
+            if (modal) {
+                modal.style.display = show ? 'flex' : 'none';
+            }
         }
-        .dashboard-container {
-            background-color: white;
-            border-radius: 10px;
-            max-width: 500px;
-            margin: 0 auto;
-            padding: 30px;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+
+        // Mostrar el modal si hay un mensaje al cargar la página
+        window.onload = function() {
+            <?php if ($show_modal): ?>
+                toggleModal(true);
+            <?php endif; ?>
+        };
+
+        // Función para cambiar la acción del formulario antes de enviarlo
+        function setFormAction(action) {
+            const form = document.getElementById('searchForm');
+            form.action = action;
         }
-        h2 {
-            color: #0078d7;
-        }
-        input[type="text"] {
-            padding: 8px;
-            width: 80%;
-            border-radius: 4px;
-            border: 1px solid #ccc;
-            margin-top: 10px;
-        }
-        button {
-            padding: 8px 20px;
-            background-color: #0078d7;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            margin-top: 10px;
-        }
-        button:hover {
-            background-color: #005fa3;
-        }
-        form {
-            margin-bottom: 15px;
-        }
-    </style>
+    </script>
 </head>
-<body>
-    <div class="dashboard-container">
-        <h2>Bienvenido, <?= htmlspecialchars($user) ?> 👋</h2>
-        <p>Ingrese el número de factura que desea consultar:</p>
+<body class="dashboard-body">
 
-        <!-- 🔹 Aquí corregimos el name para que coincida -->
-        <form method="post" action="consultar_factura.php">
-            <input type="text" name="factura" placeholder="Número de factura" required>
-            <button type="submit">Consultar</button>
-        </form>
+<div class="dashboard-container">
+    <h2>Bienvenido al Dashboard, <?= $user_email ?></h2>
 
-        <form method="post" action="logout.php">
-            <button type="submit">Cerrar sesión</button>
-        </form>
+    <p>Utiliza las opciones de búsqueda a continuación:</p>
+
+    <!-- Formulario principal de búsqueda -->
+    <form id="searchForm" action="consultar_factura.php" method="GET">
+        <label for="factura">Ingresar Número de Factura:</label>
+        <input type="text" id="factura" name="factura" placeholder="Ej: 2024-XXXXX" required>
+
+        <label for="anio">Ingresar el año:</label>
+        <input type="text" id="factura" name="factura" placeholder="Ej: 2024" required>
+
+        <div style="display: flex; gap: 10px; margin-top: 20px; flex-direction: column;">
+            
+            <!-- Botón 0: Consulta Simple (Original) -->
+            <button 
+                type="submit" 
+                onclick="setFormAction('consultar_concepto.php')"
+                >
+                Consultar Concepto Migrantes
+            </button>
+        
+            <!-- Botón 1: Consulta Simple (Original) -->
+            <button 
+                type="submit" 
+                onclick="setFormAction('consultar_factura.php')"
+                >
+                Consultar Factura URG
+            </button>
+
+            <!-- Botón 2: Consulta Dual (Nuevo) -->
+            <button 
+                type="submit" 
+                onclick="setFormAction('consultar_factura2.php')" 
+                class="boton-guardar"
+                style="background-color: #28a745;"
+                >
+                Prueba dos tablas (URG y NO POS)
+            </button>
+
+            <!-- Botón 3: Modifica  -->
+            <button 
+                type="submit" 
+                onclick="setFormAction('modificar_factura.php')" 
+                
+                style="background-color: #28a745;"
+                >
+                Modificar factura
+            </button>
+        </div>
+
+    </form>
+    
+    <div style="margin-top: 30px;">
+        <a href="logout.php" class="volver" style="color: white; background-color: #dc3545; border-color: #dc3545;">Cerrar Sesión</a>
     </div>
+
+</div>
+
+<!-- Contenedor del Modal Flotante -->
+<div id="myModal" class="modal-overlay" style="display: <?= $show_modal ? 'flex' : 'none'; ?>">
+    <div class="modal-content">
+        <h3 class="modal-title <?= $modal_type ?>"><?= $modal_title ?></h3>
+        <p><?= $modal_message ?></p>
+        <button class="modal-button" onclick="toggleModal(false)">Aceptar</button>
+    </div>
+</div>
+
 </body>
 </html>

@@ -11,11 +11,15 @@ services:
       MYSQL_DATABASE: auditocm
       MYSQL_USER: auditocm_user
       MYSQL_PASSWORD: auditocm_pass
-    command: --local-infile=1
+    command: --local-infile=1 # <-- ¡ESTO HABILITA EL SERVIDOR!
     volumes:
       - C:/GitHub/auditocm/files:/var/lib/mysql-files
+      # AÑADIMOS ESTA LÍNEA CRÍTICA:
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql # <--- NUEVA LÍNEA PARA CREAR TABLAS
+      # ¡NUEVO MONTAJE CRÍTICO PARA ELIMINAR ERROR 1290!
+      - ./mysql-custom.cnf:/etc/mysql/conf.d/mysql-custom.cnf:ro      
     ports:
-      - "3306:3306"
+      - "3307:3306"
 
   backend:
     build:
@@ -32,8 +36,25 @@ services:
     ports:
       - "8080:80"
     volumes:
-        - ./apps/backend/public:/var/www/html:ro
-        - ./apps/backend/src:/var/www/src:ro
+      # CORRECCIÓN DE RUTA: Ruta correcta desde la raíz del proyecto a la carpeta del backend.
+      - ./apps/backend:/var/www/html:ro
+      - ./apps/backend/src:/var/www/src:ro
+
+  frontend:
+    image: nginx:alpine
+    container_name: auditocm_frontend
+    restart: unless-stopped
+    ports:
+      - "80:80" # El frontend estará en http://localhost
+    volumes:
+      # Monta el código del frontend.
+      - ./apps/frontend:/usr/share/nginx/html:ro 
+      
+      # Monta la configuración estática que acabamos de crear (nginx.conf debe estar en la raíz).
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro 
+      
+    depends_on:
+      - backend
 
 volumes:
   db_data:
