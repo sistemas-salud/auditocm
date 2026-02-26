@@ -65,6 +65,18 @@
                        placeholder="Ej: 2025 o * para todos">
             </div>
 
+            <div class="col-md-4 position-relative">
+                <label>Acta</label>
+                <input type="text" id="acta" class="form-control" autocomplete="off">
+                <div id="acta-list" class="list-group position-absolute w-100" style="z-index:1000;"></div>
+            </div>
+
+            <div class="col-md-4 position-relative">
+                <label>No Factura</label>
+                <input type="text" id="no_factura" name="no_factura" class="form-control" autocomplete="off">
+                <div id="factura-list" class="list-group position-absolute w-100" style="z-index:1000;"></div>
+            </div>
+
             <div class="col-md-4 d-flex align-items-end">
                 <button type="submit" class="btn btn-primary w-100">
                     Consultar
@@ -132,16 +144,27 @@
 document.getElementById("formConsulta").addEventListener("submit", function(e){
     e.preventDefault();
 
-    const nit = document.getElementById("nit").value;
-    const year = document.getElementById("year").value;
+    // 🔥submit
+    const nit = document.getElementById("nit").value.trim();
+    const year = document.getElementById("year").value.trim();
+    const acta = document.getElementById("acta").value.trim();
+    const no_factura = document.getElementById("no_factura").value.trim();
 
-    if(!nit){
-        alert("Debe ingresar un NIT");
+    if (!nit && !acta && !no_factura) {
+        alert("Debe ingresar al menos un filtro");
         return;
     }
 
+    // 🔥 Construir parámetros dinámicamente
+    const params = new URLSearchParams();
+
+    if (nit) params.append("nit", nit);
+    if (year) params.append("year", year);
+    if (acta) params.append("acta", acta);
+    if (no_factura) params.append("no_factura", no_factura);
+
     // 🔹 Consulta principal
-    fetch(`/cartera/acta?nit=${nit}&year=${year}`)
+    fetch(`/cartera/acta?${params.toString()}`)
         .then(response => response.json())
         .then(data => {
             if(data.status === "success"){
@@ -152,7 +175,7 @@ document.getElementById("formConsulta").addEventListener("submit", function(e){
         });
 
     // 🔹 Consulta resumen lateral
-    fetch(`/cartera/resumen?nit=${nit}&year=${year}`)
+    fetch(`/cartera/resumen?${params.toString()}`)
         .then(response => response.json())
         .then(data => {
             if(data.status === "success"){
@@ -198,16 +221,22 @@ function renderTable(data){
         totalFacturas += Number(row.CUENTA_No_FACTURA || 0);
 
         tbody.innerHTML += `
-            <tr>
-                <td>${row.acta}</td>
-                <td>${formatCurrency(row.SUMA_VALOR_FACTURA)}</td>
-                <td>${formatCurrency(row.SUMA_DE_VALOR_GLOSADO)}</td>
-                <td>${formatCurrency(row.SUMA_DE_VALOR_RECONOCIDO)}</td>
-                <td>${formatCurrency(row.SUMA_DE_VALOR_PAGADO)}</td>
-                <td>${formatCurrency(row.SUMA_DE_VALOR_SALDO)}</td>
-                <td>${formatCurrency(row.SUMA_DE_PASIVO_CONTINGENTE)}</td>
-                <td>${row.CUENTA_No_FACTURA}</td>
-            </tr>
+        <tr>
+            <td>${row.acta}</td>
+            <td>${formatCurrency(row.SUMA_VALOR_FACTURA)}</td>
+            <td>${formatCurrency(row.SUMA_DE_VALOR_GLOSADO)}</td>
+            <td>${formatCurrency(row.SUMA_DE_VALOR_RECONOCIDO)}</td>
+            <td>${formatCurrency(row.SUMA_DE_VALOR_PAGADO)}</td>
+            <td>${formatCurrency(row.SUMA_DE_VALOR_SALDO)}</td>
+            <td>${formatCurrency(row.SUMA_DE_PASIVO_CONTINGENTE)}</td>
+            <td>${row.CUENTA_No_FACTURA}</td>
+            <td class="text-center">
+                <button class="btn btn-sm btn-outline-primary"
+                        onclick="verDetalle('${row.acta}')">
+                    👁
+                </button>
+            </td>
+        </tr>
         `;
     });
 
@@ -221,10 +250,10 @@ function renderTable(data){
             <td>${formatCurrency(totalSaldo)}</td>
             <td>${formatCurrency(totalPasivo)}</td>
             <td>${totalFacturas}</td>
+            <td></td>
         </tr>
     `;
 }
-
 
 function renderResumen(data){
 
@@ -257,9 +286,44 @@ function renderResumen(data){
     `;
 }
 
-</script>
 
-<script>
+function verDetalle(acta) {
+
+    fetch(`/cartera/detalle?acta=${acta}`)
+        .then(response => response.json())
+        .then(data => {
+
+            if(data.status === "success"){
+
+                let tbody = document.querySelector("#tablaDetalle tbody");
+                tbody.innerHTML = "";
+
+                data.data.forEach(row => {
+
+                    let tr = document.createElement("tr");
+
+                    tr.innerHTML = `
+                        <td>${row.NO_FACTURA}</td>
+                        <td>${row.NIT}</td>
+                        <td>${row.IPS}</td>
+                        <td>${row.VALOR_FACTURA}</td>
+                        <td>${row.VALOR_GLOSADO}</td>
+                        <td>${row.VALOR_RECONOCIDO}</td>
+                        <td>${row.VALOR_PAGADO}</td>
+                        <td>${row.VALOR_SALDO}</td>
+                    `;
+
+                    tbody.appendChild(tr);
+                });
+
+                let modal = new bootstrap.Modal(document.getElementById('modalDetalle'));
+                modal.show();
+            }
+        });
+}
+
+
+// 
 const nitInput = document.getElementById("nit");
 const nitList = document.getElementById("nit-list");
 const nombreInput = document.getElementById("nombre_ips");
@@ -298,9 +362,118 @@ nitInput.addEventListener("input", function() {
             });
         });
 });
+
+// FILTRO PARA BUSQUEDA POR ACTA
+const actaInput = document.getElementById("acta");
+const actaList = document.getElementById("acta-list");
+
+actaInput.addEventListener("input", function() {
+
+    let query = this.value;
+
+    if (query.length < 2) {
+        actaList.innerHTML = "";
+        return;
+    }
+
+    fetch(`/autocomplete_acta?term=${query}`)
+        .then(response => response.json())
+        .then(data => {
+
+            actaList.innerHTML = "";
+
+            data.forEach(item => {
+
+                let option = document.createElement("a");
+                option.classList.add("list-group-item", "list-group-item-action");
+                option.textContent = item.acta;
+
+                option.addEventListener("click", function() {
+                    actaInput.value = item.acta;
+                    actaList.innerHTML = "";
+                });
+
+                actaList.appendChild(option);
+            });
+        });
+});
+
+// cerrar si se hace click afuera
+document.addEventListener("click", function(e) {
+    if (!actaInput.contains(e.target)) {
+        actaList.innerHTML = "";
+    }
+});
+
+// FILTRO PARA BUSQUEDA POR NO_FACTURA
+const facturaInput = document.getElementById("no_factura");
+const facturaList = document.getElementById("factura-list");
+
+facturaInput.addEventListener("input", function() {
+
+    let query = this.value;
+
+    if (query.length < 2) {
+        facturaList.innerHTML = "";
+        return;
+    }
+
+    fetch(`/autocomplete_factura?term=${query}`)
+        .then(response => response.json())
+        .then(data => {
+
+            facturaList.innerHTML = "";
+
+            data.forEach(item => {
+
+                let option = document.createElement("a");
+                option.classList.add("list-group-item", "list-group-item-action");
+                option.textContent = item.no_factura;
+
+                option.addEventListener("click", function() {
+                    facturaInput.value = item.no_factura;
+                    facturaList.innerHTML = "";
+                });
+
+                facturaList.appendChild(option);
+            });
+        });
+});
 </script>
 
 
+<div class="modal fade" id="modalDetalle" tabindex="-1">
+  <div class="modal-dialog modal-xl">
+    <div class="modal-content">
 
+      <div class="modal-header">
+        <h5 class="modal-title">Detalle de Facturas</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+
+      <div class="modal-body">
+
+        <table class="table table-bordered" id="tablaDetalle">
+          <thead>
+            <tr>
+              <th>No Factura</th>
+              <th>NIT</th>
+              <th>IPS</th>
+              <th>Valor Factura</th>
+              <th>Valor Glosado</th>
+              <th>Valor Reconocido</th>
+              <th>Valor Pagado</th>
+              <th>Valor Saldo</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+
+      </div>
+
+    </div>
+  </div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
