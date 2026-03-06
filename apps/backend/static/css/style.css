@@ -1,0 +1,77 @@
+/* 🔥 TABLAS GENERALES */
+body {
+    background-color: #f4f6f9;
+}
+
+.card {
+    border-radius: 15px;
+    border: 2px solid #dee2e6;
+}
+
+.table {
+    border: 1px solid #dee2e6;
+}
+
+.table th, 
+.table td {
+    border: 1px solid #dee2e6 !important;
+}
+
+.table thead {
+    background-color: #0d6efd;
+    color: white;
+}
+
+.total-row {
+    font-weight: bold;
+    background-color: #e9ecef;
+}
+
+.tabla-cartera {
+    border-collapse: collapse;
+    width: 100%;
+    font-size: 14px;
+    background-color: #ffffff;
+}
+
+/* 🔹 Bordes internos */
+.tabla-cartera th,
+.tabla-cartera td {
+    border: 1px solid #dcdcdc;
+    padding: 6px 8px;
+}
+
+/* 🔹 Borde externo más fuerte */
+.tabla-cartera {
+    border: 2px solid #0d6efd;
+    border-radius: 6px;
+    overflow: hidden;
+}
+
+/* 🔹 Encabezado */
+.tabla-cartera thead {
+    background-color: #0d6efd;
+    color: white;
+}
+
+.tabla-cartera thead th {
+    text-align: center;
+    font-weight: 600;
+}
+
+/* 🔹 Hover elegante */
+.tabla-cartera tbody tr:hover {
+    background-color: #f2f6ff;
+    transition: 0.2s ease-in-out;
+}
+
+/* 🔹 Fila total */
+.fila-total {
+    background-color: #fff3cd;
+    font-weight: bold;
+}
+
+/* 🔹 Centrar números */
+.text-right {
+    text-align: right;
+}
