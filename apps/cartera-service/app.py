@@ -74,10 +74,10 @@ def cartera():
     acta = request.args.get("acta", "").strip()
     year = request.args.get("year", "").strip()
     
-    # DEBUG
-    print("="*50)
-    print(f"FILTROS RECIBIDOS - NIT: '{nit}', Acta: '{acta}', Año: '{year}'")
-    print("="*50)
+    # Parámetro para controlar el nivel de detalle
+    detalle = request.args.get("detalle", "0")  # 0 = agrupado, 1 = detalle
+    
+    print(f"Filtros: NIT='{nit}', Acta='{acta}', Año='{year}', Detalle={detalle}")
     
     data = []
     totales = {
@@ -90,99 +90,148 @@ def cartera():
         "CUENTA_NO_FACTURAS": 0
     }
     
-    # SOLO CONSULTAR SI HAY FILTROS
     if nit or acta or year:
         try:
             conn = get_connection()
             cursor = conn.cursor(dictionary=True)
             
-            # DEBUG: Verificar datos en BD
-            cursor.execute("SELECT COUNT(*) as total FROM facturas_mig")
-            total = cursor.fetchone()
-            print(f"Total registros en BD: {total['total']}")
+            # ===========================================
+            # CONSULTA 1: CONTAR REGISTROS TOTALES (SIN GROUP BY)
+            # ===========================================
+            count_query = "SELECT COUNT(*) as total FROM facturas_mig fm WHERE 1=1"
+            count_params = []
             
-            # Construir query base - IMPORTANTE: Incluir base_datos
-            query = """
-                SELECT 
-                    'MIG' AS base_datos,
-                    fm.nit,
-                    fm.ips,
-                    fm.acta,
-                    COALESCE(SUM(fm.VALOR_FACTURA), 0) AS VALOR_FACTURA,
-                    COALESCE(SUM(fm.VALOR_GLOSADO), 0) AS VALOR_GLOSADO,
-                    COALESCE(SUM(fm.VALOR_RECONOCIDO), 0) AS VALOR_RECONOCIDO,
-                    COALESCE(SUM(fm.VALOR_PAGADO), 0) AS VALOR_PAGADO,
-                    COALESCE(SUM(fm.VALOR_SALDO), 0) AS VALOR_SALDO,
-                    COALESCE(SUM(fm.PASIVO_CONTINGENTE), 0) AS VALOR_CONTINGENTE,
-                    COUNT(DISTINCT fm.NO_FACTURA) AS CUENTA_NO_FACTURAS
-                FROM facturas_mig fm
-                WHERE 1=1
-            """
-            
-            params = []
-            
-            # APLICAR FILTROS - con logs detallados
             if nit:
-                query += " AND fm.nit = %s"
-                params.append(nit)
-                print(f"✅ APLICANDO FILTRO NIT: '{nit}'")
-                
-                # Verificar que el NIT existe
-                cursor.execute("SELECT COUNT(*) as total FROM facturas_mig WHERE nit = %s", (nit,))
-                existe = cursor.fetchone()
-                print(f"  → Registros encontrados para NIT '{nit}': {existe['total']}")
-            
+                count_query += " AND fm.nit = %s"
+                count_params.append(nit)
             if acta:
-                query += " AND fm.acta = %s"
-                params.append(acta)
-                print(f"✅ APLICANDO FILTRO ACTA: '{acta}'")
-                
-                # Verificar que el acta existe
-                cursor.execute("SELECT COUNT(*) as total FROM facturas_mig WHERE acta = %s", (acta,))
-                existe = cursor.fetchone()
-                print(f"  → Registros encontrados para ACTA '{acta}': {existe['total']}")
-            
+                count_query += " AND fm.acta = %s"
+                count_params.append(acta)
             if year:
-                try:
-                    year_int = int(year)
+                count_query += " AND YEAR(fm.fecha_factura) = %s"
+                count_params.append(int(year))
+            
+            cursor.execute(count_query, tuple(count_params))
+            total_registros = cursor.fetchone()['total']
+            
+            print(f"Total registros individuales: {total_registros}")
+            
+            # ===========================================
+            # CONSULTA 2: DATOS AGRUPADOS O DETALLE
+            # ===========================================
+            if detalle == "1" or total_registros < 100:  # Si piden detalle o son pocos registros
+                # CONSULTA DE DETALLE (SIN AGRUPAR)
+                query = """
+                    SELECT 
+                        'MIG' AS base_datos,
+                        fm.nit,
+                        fm.ips,
+                        fm.acta,
+                        YEAR(fm.fecha_factura) AS año_factura,
+                        fm.NO_FACTURA AS numero_factura,
+                        COALESCE(fm.VALOR_FACTURA, 0) AS VALOR_FACTURA,
+                        COALESCE(fm.VALOR_GLOSADO, 0) AS VALOR_GLOSADO,
+                        COALESCE(fm.VALOR_RECONOCIDO, 0) AS VALOR_RECONOCIDO,
+                        COALESCE(fm.VALOR_PAGADO, 0) AS VALOR_PAGADO,
+                        COALESCE(fm.VALOR_SALDO, 0) AS VALOR_SALDO,
+                        COALESCE(fm.PASIVO_CONTINGENTE, 0) AS VALOR_CONTINGENTE,
+                        1 AS CUENTA_NO_FACTURAS,
+                        ROW_NUMBER() OVER (ORDER BY fm.acta, fm.NO_FACTURA) AS consecutivo  /* 🔥 NUEVO */
+                    FROM facturas_mig fm
+                    WHERE 1=1
+                """
+                params = []
+                
+                if nit:
+                    query += " AND fm.nit = %s"
+                    params.append(nit)
+                if acta:
+                    query += " AND fm.acta = %s"
+                    params.append(acta)
+                if year:
                     query += " AND YEAR(fm.fecha_factura) = %s"
-                    params.append(year_int)
-                    print(f"✅ APLICANDO FILTRO AÑO: {year_int}")
-                except ValueError:
-                    print(f"⚠️ Año inválido: {year}")
+                    params.append(int(year))
+                
+                query += " ORDER BY fm.acta, fm.NO_FACTURA"
+                
+                print("📋 Modo: DETALLE (registros individuales)")
+                
+            else:
+                # CONSULTA AGRUPADA DINÁMICA
+                select_cols = [
+                    "'MIG' AS base_datos",
+                    "fm.nit",
+                    "fm.ips"
+                ]
+                group_by_cols = ["fm.nit", "fm.ips"]
+                
+                # Si hay filtro de acta, no agrupar por acta (ya viene filtrada)
+                if not acta:
+                    select_cols.append("fm.acta")
+                    group_by_cols.append("fm.acta")
+                else:
+                    select_cols.append("'' AS acta_agrupada")  # Placeholder
+                
+                # Siempre mostrar el año
+                select_cols.append("YEAR(fm.fecha_factura) AS año_factura")
+                group_by_cols.append("YEAR(fm.fecha_factura)")
+                
+                # Agregar las sumas
+                select_cols.extend([
+                    "COALESCE(SUM(fm.VALOR_FACTURA), 0) AS VALOR_FACTURA",
+                    "COALESCE(SUM(fm.VALOR_GLOSADO), 0) AS VALOR_GLOSADO",
+                    "COALESCE(SUM(fm.VALOR_RECONOCIDO), 0) AS VALOR_RECONOCIDO",
+                    "COALESCE(SUM(fm.VALOR_PAGADO), 0) AS VALOR_PAGADO",
+                    "COALESCE(SUM(fm.VALOR_SALDO), 0) AS VALOR_SALDO",
+                    "COALESCE(SUM(fm.PASIVO_CONTINGENTE), 0) AS VALOR_CONTINGENTE",
+                    "COUNT(DISTINCT fm.NO_FACTURA) AS CUENTA_NO_FACTURAS"
+                ])
+                
+                query = f"""
+                    SELECT {', '.join(select_cols)}
+                    FROM facturas_mig fm
+                    WHERE 1=1
+                """
+                params = []
+                
+                if nit:
+                    query += " AND fm.nit = %s"
+                    params.append(nit)
+                if acta:
+                    query += " AND fm.acta = %s"
+                    params.append(acta)
+                if year:
+                    query += " AND YEAR(fm.fecha_factura) = %s"
+                    params.append(int(year))
+                
+                query += f" GROUP BY {', '.join(group_by_cols)} ORDER BY año_factura"
+                
+                print(f"📋 Modo: AGRUPADO por: {', '.join(group_by_cols)}")
             
-            query += " GROUP BY fm.nit, fm.ips, fm.acta ORDER BY fm.acta"
-            
-            print(f"\n📝 QUERY FINAL:")
-            print(query)
-            print(f"📝 PARÁMETROS: {params}")
+            print(f"Query: {query}")
+            print(f"Parámetros: {params}")
             
             cursor.execute(query, tuple(params))
             data = cursor.fetchall()
             
-            print(f"\n📊 RESULTADOS: {len(data)} registros encontrados")
+            print(f"Registros encontrados: {len(data)}")
             
-            # Mostrar primer registro como ejemplo si hay datos
-            if data:
-                print("Primer registro:")
-                for key, value in data[0].items():
-                    print(f"  {key}: {value}")
-            
-            # Calcular totales
-            for row in data:
-                totales["VALOR_FACTURA"] += float(row["VALOR_FACTURA"] or 0)
-                totales["VALOR_GLOSADO"] += float(row["VALOR_GLOSADO"] or 0)
-                totales["VALOR_RECONOCIDO"] += float(row["VALOR_RECONOCIDO"] or 0)
-                totales["VALOR_PAGADO"] += float(row["VALOR_PAGADO"] or 0)
-                totales["VALOR_SALDO"] += float(row["VALOR_SALDO"] or 0)
-                totales["VALOR_CONTINGENTE"] += float(row["VALOR_CONTINGENTE"] or 0)
-                totales["CUENTA_NO_FACTURAS"] += int(row["CUENTA_NO_FACTURAS"] or 0)
+            # Calcular totales (solo para vista agrupada)
+            if detalle != "1":
+                for row in data:
+                    totales["VALOR_FACTURA"] += float(row["VALOR_FACTURA"] or 0)
+                    totales["VALOR_GLOSADO"] += float(row["VALOR_GLOSADO"] or 0)
+                    totales["VALOR_RECONOCIDO"] += float(row["VALOR_RECONOCIDO"] or 0)
+                    totales["VALOR_PAGADO"] += float(row["VALOR_PAGADO"] or 0)
+                    totales["VALOR_SALDO"] += float(row["VALOR_SALDO"] or 0)
+                    totales["VALOR_CONTINGENTE"] += float(row["VALOR_CONTINGENTE"] or 0)
+                    totales["CUENTA_NO_FACTURAS"] += int(row["CUENTA_NO_FACTURAS"] or 0)
             
             cursor.close()
             conn.close()
             
         except Exception as e:
-            print(f"❌ ERROR: {str(e)}")
+            print(f"Error: {str(e)}")
             import traceback
             traceback.print_exc()
             return f"Error: {str(e)}", 500
@@ -190,8 +239,20 @@ def cartera():
     return render_template(
         "cartera.html",
         cartera=data,
-        totales=totales
+        totales=totales,
+        es_detalle=(detalle == "1"),
+        total_registros=len(data) if data else 0
     )
+
+
+
+@app.template_filter('formato_numero')
+def formato_numero(value):
+    """Convierte a float y formatea número"""
+    try:
+        return "{:,.0f}".format(float(value or 0))
+    except (ValueError, TypeError):
+        return "0"
 # ==========================================================
 # 🔹 MODULOS DE CARGUE
 # ==========================================================
@@ -394,14 +455,16 @@ def autocomplete_acta():
     
     if term:
         cursor.execute("""
-            SELECT DISTINCT fm.acta AS acta
+            SELECT DISTINCT fm.acta AS acta,
+                   YEAR(fm.fecha_factura) as año
             FROM facturas_mig fm
             WHERE fm.acta LIKE %s
             LIMIT 10
         """, (f"{term}%",))
     else:
         cursor.execute("""
-            SELECT DISTINCT fm.acta AS acta
+            SELECT DISTINCT fm.acta AS acta,
+                   YEAR(fm.fecha_factura) as año
             FROM facturas_mig fm
             WHERE fm.acta IS NOT NULL AND fm.acta != ''
             LIMIT 10
