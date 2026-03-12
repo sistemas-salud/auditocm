@@ -15,8 +15,6 @@
 <div class="card p-4 shadow-sm">
 
     <form method="GET" action="/cartera" class="row g-3 mb-4">
-
-        <!-- 🔥 INPUTS MEJORADOS CON DATALIST -->
         <div class="col-md-3">
             <label>NIT</label>
             <input type="text" 
@@ -24,12 +22,12 @@
                    class="form-control" 
                    id="nitInput"
                    value="{{ request.args.get('nit','') }}"
-                   placeholder="Ingrese NIT (ej: 891900343)"
+                   placeholder="Ingrese NIT"
                    list="nitSuggestions">
             <datalist id="nitSuggestions"></datalist>
             <small class="text-muted">Ejemplos: 891900343, 891900235</small>
         </div>
-
+    
         <div class="col-md-3">
             <label>Acta</label>
             <input type="text" 
@@ -42,74 +40,98 @@
             <datalist id="actaSuggestions"></datalist>
             <small class="text-muted">Ejemplo: 1.220.20-2 HOSMI19-022</small>
         </div>
-
+    
         <div class="col-md-2">
             <label>Año</label>
-            <input type="number" name="year" class="form-control"
-                   value="{{ request.args.get('year','') }}">
+            <input type="number" 
+                   name="year" 
+                   class="form-control"
+                   value="{{ request.args.get('year','') }}"
+                   placeholder="Ej: 2024"
+                   min="2000" max="2030">
         </div>
+        
+        <div class="col-md-4">
+            <label>No. Factura</label>
+            <input type="text" name="no_factura" class="form-control" 
+                   value="{{ filtros.no_factura }}" placeholder="Número de factura">
+        </div>
+    
+        <!-- Fila 2: Fechas -->
+        <div class="col-md-3">
+            <label>Fecha Factura</label>
+            <input type="date" name="fecha_factura" class="form-control" 
+                   value="{{ filtros.fecha_factura }}">
+        </div>
+    
+        <div class="col-md-3">
+            <label>Fecha Prestación</label>
+            <input type="date" name="fecha_prestacion" class="form-control" 
+                   value="{{ filtros.fecha_prestacion }}">
+        </div>
+    
+        <div class="col-md-3">
+            <label>Fecha Radicación</label>
+            <input type="date" name="fecha_radicacion" class="form-control" 
+                   value="{{ filtros.fecha_radicacion }}">
+        </div>
+    
+        <div class="col-md-3">
+            <label>Fecha Pago</label>
+            <input type="date" name="fecha_pago" class="form-control" 
+                   value="{{ filtros.fecha_pago }}">
+        </div>
+    
+        <!-- Fila 3: Observación y botones -->
+        <div class="col-md-6">
+            <label>Observación de Pago</label>
+            <input type="text" name="observacion" class="form-control" 
+                   value="{{ filtros.observacion }}" 
+                   placeholder="Ej: PAGADO PARCIALMENTE">
+        </div>
+
 
         <div class="col-md-2 align-self-end">
             <button type="submit" class="btn btn-primary w-100">
-                Buscar
+                <i class="bi bi-search"></i> Buscar
             </button>
         </div>
-
+    
         <div class="col-md-2 align-self-end">
             <a href="/cartera" class="btn btn-secondary w-100">
-                Limpiar
+                <i class="bi bi-eraser"></i> Limpiar
             </a>
         </div>
-
     </form>
     <!-- Tabla principal -->
 
 <!-- Tabla principal -->
 <table class="table table-bordered table-hover">
-    
-    <div class="col-md-2 align-self-end">
-        <button type="button" class="btn btn-info w-100" onclick="toggleModo()">
-            <i class="bi bi-arrow-left-right"></i> 
-            <span id="modoTexto">{{ 'Modo: Detalle' if es_detalle else 'Modo: Agrupado' }}</span>
-        </button>
-    </div>
-    <script>
-    function toggleModo() {
-        const url = new URL(window.location.href);
-        const detalle = url.searchParams.get('detalle') === '1' ? '0' : '1';
-        url.searchParams.set('detalle', detalle);
-        window.location.href = url.toString();
-    }
-    </script>
-    
+
+    <!-- Encabezado de la tabla - AHORA FIJO -->
     <thead class="table-primary">
         <tr>
-            <th>#</th>  <!-- 🔥 NUEVA COLUMNA DE CONSECUTIVO -->
+            <th>#</th>
             <th>Base</th>
             <th>Año</th>
             <th>NIT</th>
             <th>IPS</th>
             <th>Acta</th>
-            {% if es_detalle %}
             <th>No. Factura</th>
-            {% endif %}
             <th>Valor Factura</th>
             <th>Glosado</th>
             <th>Reconocido</th>
             <th>Pagado</th>
             <th>Saldo</th>
             <th>Contingente</th>
-            {% if not es_detalle %}
-            <th># Facturas</th>
-            {% endif %}
             <th>Acciones</th>
         </tr>
     </thead>
-    
+
     <tbody>
         {% if not cartera %}
         <tr>
-            <td colspan="{% if es_detalle %}14{% else %}14{% endif %}" class="text-center text-muted">
+            <td colspan="14" class="text-center text-muted">
                 No hay datos para mostrar. Realice una búsqueda.
             </td>
         </tr>
@@ -117,52 +139,40 @@
 
         {% for row in cartera %}
         <tr>
-            <!-- CUERPO DE LA TABLA -->
-            <td>{{ row.consecutivo if es_detalle else loop.index }}</td>  <!-- 🔥 CONSECUTIVO -->
+            <td>{{ loop.index }}</td>
             <td>{{ row.base_datos }}</td>
             <td>{{ row.año_factura }}</td>
             <td>
                 <a href="javascript:void(0)" 
-                   onclick="verDetallePorNit('{{ row.nit }}')"
-                   class="text-primary">
+                onclick="verDetallePorNit('{{ row.nit }}')"
+                class="text-primary text-decoration-none"
+                title="Ver facturas de este NIT">
                     {{ row.nit }}
                 </a>
             </td>
             <td>{{ row.ips }}</td>
             <td>
-                {% if es_detalle %}
+                <a href="javascript:void(0)" 
+                onclick="verDetallePorActa('{{ row.acta }}')"
+                class="text-success text-decoration-none"
+                title="Ver facturas de esta acta">
                     {{ row.acta }}
-                {% else %}
-                    <a href="javascript:void(0)" 
-                       onclick="verDetallePorActa('{{ row.acta }}')"
-                       class="text-success">
-                        {{ row.acta }}
-                    </a>
-                {% endif %}
+                </a>
             </td>
-            
-            {% if es_detalle %}
             <td>
                 <a href="javascript:void(0)" 
-                   onclick="verDetallePorFactura('{{ row.numero_factura }}')"
-                   class="text-info">
+                onclick="verDetallePorFactura('{{ row.numero_factura }}')"
+                class="text-info text-decoration-none"
+                title="Ver detalle de esta factura">
                     {{ row.numero_factura }}
                 </a>
             </td>
-            {% endif %}
-            
             <td class="text-end">{{ "{:,.0f}".format(row.VALOR_FACTURA | float) }}</td>
             <td class="text-end">{{ "{:,.0f}".format(row.VALOR_GLOSADO | float) }}</td>
             <td class="text-end">{{ "{:,.0f}".format(row.VALOR_RECONOCIDO | float) }}</td>
             <td class="text-end">{{ "{:,.0f}".format(row.VALOR_PAGADO | float) }}</td>
             <td class="text-end">{{ "{:,.0f}".format(row.VALOR_SALDO | float) }}</td>
             <td class="text-end">{{ "{:,.0f}".format(row.VALOR_CONTINGENTE | float) }}</td>
-            <td class="text-end">{{ row.VALOR_FACTURA | formato_numero }}</td>
-            
-            {% if not es_detalle %}
-            <td class="text-center">{{ row.CUENTA_NO_FACTURAS }}</td>
-            {% endif %}
-            
             <td class="text-center">
                 <div class="btn-group btn-group-sm">
                     <button class="btn btn-outline-primary" 
@@ -170,16 +180,14 @@
                             title="Ver facturas por NIT">
                         <i class="bi bi-building"></i>
                     </button>
-                    {% if not es_detalle %}
                     <button class="btn btn-outline-success" 
                             onclick="verDetallePorActa('{{ row.acta }}')"
                             title="Ver facturas por Acta">
                         <i class="bi bi-file-text"></i>
                     </button>
-                    {% endif %}
                     <button class="btn btn-outline-info" 
-                            onclick="verDetalleCompleto('{{ row.nit }}', '{{ row.acta if not es_detalle else '' }}', '{{ row.año_factura }}')"
-                            title="Ver detalle completo">
+                            onclick="verDetallePorFactura('{{ row.numero_factura }}')"
+                            title="Ver detalle de factura">
                         <i class="bi bi-eye"></i>
                     </button>
                 </div>
@@ -187,21 +195,19 @@
         </tr>
         {% endfor %}
 
-        <!-- 🔥 FILA DE TOTALES - JUSTO AQUÍ -->
-        {% if not es_detalle and cartera %}
+        <!-- FILA DE TOTALES - SIEMPRE VISIBLE -->
+        {% if cartera %}
         <tr class="table-dark fw-bold">
-            <td colspan="6">TOTALES</td>  <!-- Cambiado de 5 a 6 por la nueva columna -->
+            <td colspan="7">TOTALES ({{ totales.CUENTA_NO_FACTURAS }} facturas)</td>
             <td class="text-end">{{ "{:,.0f}".format(totales.VALOR_FACTURA | float) }}</td>
             <td class="text-end">{{ "{:,.0f}".format(totales.VALOR_GLOSADO | float) }}</td>
             <td class="text-end">{{ "{:,.0f}".format(totales.VALOR_RECONOCIDO | float) }}</td>
             <td class="text-end">{{ "{:,.0f}".format(totales.VALOR_PAGADO | float) }}</td>
             <td class="text-end">{{ "{:,.0f}".format(totales.VALOR_SALDO | float) }}</td>
             <td class="text-end">{{ "{:,.0f}".format(totales.VALOR_CONTINGENTE | float) }}</td>
-            <td class="text-center">{{ totales.CUENTA_NO_FACTURAS }}</td>
-            <td></td>
+            <td></td>  <!-- Columna de acciones vacía -->
         </tr>
         {% endif %}
-
     </tbody>
 </table>
 
